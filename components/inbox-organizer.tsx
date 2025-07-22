@@ -29,6 +29,20 @@ import { useEmailOrganizer } from "@/hooks/use-email-organizer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PreviewModal, PreviewOperation } from "@/components/preview-modal";
+import { showUndoToast } from "@/components/undo-toast";
+// Remove direct import to avoid bundling googleapis on client side
+// import { EmailData } from "@/lib/gmail/service";
+interface EmailData {
+  id: string;
+  subject: string;
+  from: string;
+  date: string;
+  snippet: string;
+  isRead: boolean;
+  labels: string[];
+}
+import { createClient } from "@/lib/supabase/client";
 
 interface InboxOrganizerProps {
   onRefresh?: () => void;
@@ -48,19 +62,100 @@ export function InboxOrganizer({ onRefresh }: InboxOrganizerProps) {
   const [archiveDays, setArchiveDays] = useState(30);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    operation: PreviewOperation | null;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    operation: null,
+    onConfirm: () => {},
+  });
+
+  const fetchPreviewEmails = async (operation: PreviewOperation): Promise<EmailData[]> => {
+    try {
+      const response = await fetch("/api/emails/organize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "getByQuery",
+          query: operation.query,
+          maxResults: 100,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      
+      return result.emails || [];
+    } catch (error) {
+      console.error("Error fetching preview emails:", error);
+      throw error;
+    }
+  };
+
+  const getAccessToken = async (): Promise<string> => {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.provider_token || '';
+  };
+
+  const handleBulkCleanupWithPreview = () => {
+    setPreviewModal({
+      isOpen: true,
+      operation: {
+        type: 'archive',
+        query: 'in:inbox (sale OR deal OR offer OR discount OR "% off" OR "shop now" OR newsletter OR unsubscribe OR "no-reply" OR noreply OR facebook OR twitter OR linkedin OR instagram OR notification) older_than:7d',
+        description: 'Archive promotional emails, newsletters, and social notifications older than 7 days',
+      },
+      onConfirm: handleBulkCleanup,
+    });
+  };
 
   const handleBulkCleanup = async () => {
     try {
       const result = await bulkCleanup();
+      if (result.success && result.operationId) {
+        const accessToken = await getAccessToken();
+        showUndoToast({
+          operationId: result.operationId,
+          operationType: 'Smart Cleanup',
+          affectedCount: result.processedCount,
+          onUndo: onRefresh,
+          accessToken,
+        });
+      }
       if (onRefresh) onRefresh();
     } catch (error) {
       console.error("Bulk cleanup failed:", error);
     }
   };
 
+  const handleArchiveOldWithPreview = () => {
+    setPreviewModal({
+      isOpen: true,
+      operation: {
+        type: 'archive',
+        query: `in:inbox older_than:${archiveDays}d`,
+        description: `Archive emails older than ${archiveDays} days`,
+      },
+      onConfirm: handleArchiveOld,
+    });
+  };
+
   const handleArchiveOld = async () => {
     try {
-      await archiveOldEmails(archiveDays);
+      const result = await archiveOldEmails(archiveDays);
+      if (result.success && result.operationId) {
+        const accessToken = await getAccessToken();
+        showUndoToast({
+          operationId: result.operationId,
+          operationType: 'Archive Old Emails',
+          affectedCount: result.processedCount,
+          onUndo: onRefresh,
+          accessToken,
+        });
+      }
       if (onRefresh) onRefresh();
     } catch (error) {
       console.error("Archive old emails failed:", error);
@@ -87,7 +182,7 @@ export function InboxOrganizer({ onRefresh }: InboxOrganizerProps) {
         "Automatically archive newsletters, promotions, and old emails",
       icon: Zap,
       color: "bg-blue-500",
-      action: handleBulkCleanup,
+      action: handleBulkCleanupWithPreview,
     },
     {
       id: "categorize",
@@ -104,7 +199,7 @@ export function InboxOrganizer({ onRefresh }: InboxOrganizerProps) {
       description: `Archive emails older than ${archiveDays} days`,
       icon: Archive,
       color: "bg-green-500",
-      action: handleArchiveOld,
+      action: handleArchiveOldWithPreview,
     },
   ];
 
@@ -336,6 +431,15 @@ export function InboxOrganizer({ onRefresh }: InboxOrganizerProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Preview Modal */}
+      <PreviewModal
+        isOpen={previewModal.isOpen}
+        onClose={() => setPreviewModal({ ...previewModal, isOpen: false })}
+        operation={previewModal.operation}
+        onConfirm={previewModal.onConfirm}
+        onFetchPreview={fetchPreviewEmails}
+      />
     </div>
   );
 }

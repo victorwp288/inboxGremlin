@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { BulkOperationResult } from "@/lib/gmail/service";
+// Remove direct import to avoid bundling googleapis on client side
+// import { BulkOperationResult } from "@/lib/gmail/service";
+interface BulkOperationResult {
+  success: boolean;
+  processedCount: number;
+  errors: string[];
+  operationId?: string;
+  affectedEmails?: any[];
+}
 
 interface OrganizeAction {
   action:
@@ -15,6 +23,7 @@ interface OrganizeAction {
   labelIds?: string[];
   query?: string;
   maxResults?: number;
+  withHistory?: boolean;
 }
 
 interface UseEmailOrganizerResult {
@@ -75,10 +84,11 @@ export function useEmailOrganizer(): UseEmailOrganizerResult {
     });
 
     if (emailsResponse.emails && emailsResponse.emails.length > 0) {
-      // Archive them
+      // Archive them with history tracking
       const archiveResult = await organizeEmails({
         action: "archive",
         emailIds: emailsResponse.emails.map((email: any) => email.id),
+        withHistory: true,
       });
 
       return {
@@ -167,6 +177,7 @@ export function useEmailOrganizer(): UseEmailOrganizerResult {
           const promoResult = await organizeEmails({
             action: "archive",
             emailIds: promoEmailsResponse.emails.map((email: any) => email.id),
+            withHistory: true,
           });
           results.promotional = promoResult;
           results.totalProcessed += promoResult.processedCount;
@@ -190,6 +201,7 @@ export function useEmailOrganizer(): UseEmailOrganizerResult {
             emailIds: newsletterEmailsResponse.emails.map(
               (email: any) => email.id
             ),
+            withHistory: true,
           });
           results.newsletter = newsletterResult;
           results.totalProcessed += newsletterResult.processedCount;
@@ -211,6 +223,7 @@ export function useEmailOrganizer(): UseEmailOrganizerResult {
           const socialResult = await organizeEmails({
             action: "archive",
             emailIds: socialEmailsResponse.emails.map((email: any) => email.id),
+            withHistory: true,
           });
           results.social = socialResult;
           results.totalProcessed += socialResult.processedCount;

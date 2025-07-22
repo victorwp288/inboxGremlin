@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { GmailService } from "@/lib/gmail/service";
-import { EnhancedGmailService } from "@/lib/gmail/enhanced-service";
+import { GmailEnhancedService } from "@/lib/gmail/enhanced-service";
 import { GmailCacheService } from "@/lib/gmail/cache-service";
 import { gmailErrorHandler } from "@/lib/gmail/error-handler";
 import { NextRequest, NextResponse } from "next/server";
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     // Initialize services
     const gmailService = new GmailService(providerToken);
-    const enhancedService = new EnhancedGmailService(providerToken);
+    const enhancedService = new GmailEnhancedService(providerToken);
 
     // Get query parameters
     const url = new URL(request.url);
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     const { action, ...params } = body;
 
     const gmailService = new GmailService(providerToken);
-    const enhancedService = new EnhancedGmailService(providerToken);
+    const enhancedService = new GmailEnhancedService(providerToken);
 
     switch (action) {
       case "analyze_batch":
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
 // Handler functions
 async function handleDashboard(
   gmailService: GmailService,
-  enhancedService: EnhancedGmailService,
+  enhancedService: GmailEnhancedService,
   maxResults: number
 ) {
   const cacheKey = GmailCacheService.generateEmailKey("dashboard", maxResults);
@@ -210,7 +210,7 @@ async function handleDashboard(
 }
 
 async function handleAnalytics(
-  enhancedService: EnhancedGmailService,
+  enhancedService: GmailEnhancedService,
   days: number
 ) {
   const cacheKey = GmailCacheService.generateAnalyticsKey(days);
@@ -232,7 +232,7 @@ async function handleAnalytics(
 
 async function handleInsights(
   gmailService: GmailService,
-  enhancedService: EnhancedGmailService,
+  enhancedService: GmailEnhancedService,
   query: string,
   maxResults: number
 ) {
@@ -267,7 +267,7 @@ async function handleInsights(
 }
 
 async function handleThreads(
-  enhancedService: EnhancedGmailService,
+  enhancedService: GmailEnhancedService,
   maxResults: number
 ) {
   const threads = await gmailErrorHandler.executeWithRetry(
@@ -290,7 +290,7 @@ async function handleCacheStats() {
 
 async function handleBatchAnalysis(
   gmailService: GmailService,
-  enhancedService: EnhancedGmailService,
+  enhancedService: GmailEnhancedService,
   params: any
 ) {
   const { query, maxResults = 50 } = params;
@@ -313,7 +313,7 @@ async function handleBatchAnalysis(
 
 async function handleSmartCategorization(
   gmailService: GmailService,
-  enhancedService: EnhancedGmailService,
+  enhancedService: GmailEnhancedService,
   params: any
 ) {
   const { query, maxResults = 100 } = params;
@@ -354,7 +354,7 @@ async function handleSmartCategorization(
 
 async function handleApplyFilter(
   gmailService: GmailService,
-  enhancedService: EnhancedGmailService,
+  enhancedService: GmailEnhancedService,
   params: any
 ) {
   const { filter, emails: emailIds } = params;

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { GmailService } from "@/lib/gmail/service";
+import { GmailEnhancedService } from "@/lib/gmail/enhanced-service";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -38,10 +39,11 @@ export async function POST(request: NextRequest) {
 
     // Initialize Gmail service with the access token
     const gmailService = new GmailService(providerToken);
+    const enhancedGmailService = new GmailEnhancedService(providerToken);
 
     // Parse request body
     const body = await request.json();
-    const { action, emailIds, labelIds, query, maxResults = 100 } = body;
+    const { action, emailIds, labelIds, query, maxResults = 100, withHistory = false } = body;
 
     let result;
 
@@ -53,7 +55,9 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        result = await gmailService.archiveEmails(emailIds);
+        result = withHistory 
+          ? await enhancedGmailService.archiveEmailsWithHistory(emailIds)
+          : await gmailService.archiveEmails(emailIds);
         break;
 
       case "delete":
@@ -63,7 +67,9 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        result = await gmailService.deleteEmails(emailIds);
+        result = withHistory
+          ? await enhancedGmailService.deleteEmailsWithHistory(emailIds)
+          : await gmailService.deleteEmails(emailIds);
         break;
 
       case "label":
@@ -81,7 +87,9 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        result = await gmailService.labelEmails(emailIds, labelIds);
+        result = withHistory
+          ? await enhancedGmailService.labelEmailsWithHistory(emailIds, labelIds)
+          : await gmailService.labelEmails(emailIds, labelIds);
         break;
 
       case "markAsRead":
@@ -91,7 +99,9 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        result = await gmailService.markAsRead(emailIds);
+        result = withHistory
+          ? await enhancedGmailService.markAsReadWithHistory(emailIds)
+          : await gmailService.markAsRead(emailIds);
         break;
 
       case "getByQuery":
@@ -141,6 +151,8 @@ export async function POST(request: NextRequest) {
       success: result.success,
       processedCount: result.processedCount,
       errors: result.errors,
+      operationId: result.operationId,
+      canUndo: result.canUndo,
     });
   } catch (error: any) {
     console.error("Error organizing emails:", error);

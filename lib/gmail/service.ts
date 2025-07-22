@@ -23,6 +23,8 @@ export interface BulkOperationResult {
   success: boolean;
   processedCount: number;
   errors: string[];
+  operationId?: string; // For undo functionality
+  affectedEmails?: EmailData[]; // For operation history
 }
 
 export class GmailService {
@@ -371,6 +373,123 @@ export class GmailService {
         success: false,
         processedCount,
         errors: [`Bulk mark as read operation failed: ${error.message}`],
+      };
+    }
+  }
+
+  /**
+   * Mark emails as unread
+   */
+  async markAsUnread(emailIds: string[]): Promise<BulkOperationResult> {
+    const errors: string[] = [];
+    let processedCount = 0;
+
+    try {
+      for (const emailId of emailIds) {
+        try {
+          await this.gmail.users.messages.modify({
+            userId: "me",
+            id: emailId,
+            requestBody: {
+              addLabelIds: ["UNREAD"],
+            },
+          });
+          processedCount++;
+        } catch (error: any) {
+          errors.push(
+            `Failed to mark email as unread ${emailId}: ${error.message}`
+          );
+        }
+      }
+
+      return {
+        success: errors.length === 0,
+        processedCount,
+        errors,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        processedCount,
+        errors: [`Bulk mark as unread operation failed: ${error.message}`],
+      };
+    }
+  }
+
+  /**
+   * Star emails
+   */
+  async starEmails(emailIds: string[]): Promise<BulkOperationResult> {
+    const errors: string[] = [];
+    let processedCount = 0;
+
+    try {
+      for (const emailId of emailIds) {
+        try {
+          await this.gmail.users.messages.modify({
+            userId: "me",
+            id: emailId,
+            requestBody: {
+              addLabelIds: ["STARRED"],
+            },
+          });
+          processedCount++;
+        } catch (error: any) {
+          errors.push(
+            `Failed to star email ${emailId}: ${error.message}`
+          );
+        }
+      }
+
+      return {
+        success: errors.length === 0,
+        processedCount,
+        errors,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        processedCount,
+        errors: [`Bulk star operation failed: ${error.message}`],
+      };
+    }
+  }
+
+  /**
+   * Unstar emails
+   */
+  async unstarEmails(emailIds: string[]): Promise<BulkOperationResult> {
+    const errors: string[] = [];
+    let processedCount = 0;
+
+    try {
+      for (const emailId of emailIds) {
+        try {
+          await this.gmail.users.messages.modify({
+            userId: "me",
+            id: emailId,
+            requestBody: {
+              removeLabelIds: ["STARRED"],
+            },
+          });
+          processedCount++;
+        } catch (error: any) {
+          errors.push(
+            `Failed to unstar email ${emailId}: ${error.message}`
+          );
+        }
+      }
+
+      return {
+        success: errors.length === 0,
+        processedCount,
+        errors,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        processedCount,
+        errors: [`Bulk unstar operation failed: ${error.message}`],
       };
     }
   }
